@@ -1,0 +1,34 @@
+[
+    {
+        "skylark_message": {
+            "messagename": "Ipc1",
+            "isCAN": true,
+            "service id": 191,
+            "method id": 32791,
+            "direction": "rx"
+        },
+        "test_result": {
+            "time": "01-01 07:55:08.871",
+            "type": "rx",
+            "serviceId": 191,
+            "methodId": 32791,
+            "payload": "01 97 01 00 08 56 00 0f 02 00 00"
+        }
+    },
+    {
+        "skylark_message": {
+            "messagename": "Ipc1",
+            "isCAN": true,
+            "service id": 191,
+            "method id": 32791,
+            "direction": "rx"
+        },
+        "test_result": {
+            "time": "01-01 07:55:08.999",
+            "type": "rx",
+            "serviceId": 191,
+            "methodId": 32791,
+            "payload": "01 97 01 00 08 56 00 06 02 00 00"
+        }
+    }
+]

@@ -1,0 +1,15 @@
+{
+    "namespace": "Skylark",
+    "messageName": "IPC1",
+    "signalName": "VehSpdICStatus",
+    "msgid": "0197",
+    "start_byte": 1,
+    "start_bit": 3,
+    "length": 2,
+    "choices": {
+        "3": "Reserved",
+        "2": "Value is implausibe",
+        "1": "Reserved",
+        "0": "Value is plausible"
+    }
+}

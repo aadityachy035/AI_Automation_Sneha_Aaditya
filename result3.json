@@ -1,0 +1,48 @@
+[
+    {
+        "messageName": "IPC1",
+        "signalName": "VehSpdICStatus",
+        "msgid": "0197",
+        "start_byte": 1,
+        "start_bit": 3,
+        "length": 2,
+        "matched_choice": {
+            "2": "Value is implausibe"
+        },
+        "choices": {
+            "3": "Reserved",
+            "2": "Value is implausibe",
+            "1": "Reserved",
+            "0": "Value is plausible"
+        },
+        "isCAN": true,
+        "service_id": 191,
+        "method_id": 32791,
+        "direction": "rx",
+        "payload": "01 97 01 00 08 56 00 0f 02 00 00",
+        "time": "01-01 07:55:08.871"
+    },
+    {
+        "messageName": "IPC1",
+        "signalName": "VehSpdICStatus",
+        "msgid": "0197",
+        "start_byte": 1,
+        "start_bit": 3,
+        "length": 2,
+        "matched_choice": {
+            "2": "Value is implausibe"
+        },
+        "choices": {
+            "3": "Reserved",
+            "2": "Value is implausibe",
+            "1": "Reserved",
+            "0": "Value is plausible"
+        },
+        "isCAN": true,
+        "service_id": 191,
+        "method_id": 32791,
+        "direction": "rx",
+        "payload": "01 97 01 00 08 56 00 06 02 00 00",
+        "time": "01-01 07:55:08.999"
+    }
+]

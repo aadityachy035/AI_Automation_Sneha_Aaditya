@@ -78,7 +78,7 @@ def load_model():
     model = PeftModel.from_pretrained(base_model, FINETUNED_ADAP)
     model.eval()
 
-    print("[Server] ✅ Model ready!  Listening for requests...")
+    print("[Server] Model ready! Listening for requests...")
     print("=" * 60)
 
 

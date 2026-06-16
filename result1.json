@@ -1,5 +1,6 @@
 [
     {
+        "query_signal": "IPC1__VehSpdICStatus_rx_v",
         "skylark_message": {
             "messagename": "Ipc1",
             "isCAN": true,
@@ -16,6 +17,7 @@
         }
     },
     {
+        "query_signal": "IPC1__VehSpdICStatus_rx_v",
         "skylark_message": {
             "messagename": "Ipc1",
             "isCAN": true,
@@ -29,6 +31,23 @@
             "serviceId": 191,
             "methodId": 32791,
             "payload": "01 97 01 00 08 56 00 06 02 00 00"
+        }
+    },
+    {
+        "query_signal": "IPC_GSD1__BatVoltGS_rx_v",
+        "skylark_message": {
+            "messagename": "IPcGsd1",
+            "isCAN": true,
+            "service id": 191,
+            "method id": 32875,
+            "direction": "rx"
+        },
+        "test_result": {
+            "time": "01-01 07:55:08.914",
+            "type": "rx",
+            "serviceId": 191,
+            "methodId": 32875,
+            "payload": "04 fa 01 01 60 f5 00 00 00 77 42"
         }
     }
 ]

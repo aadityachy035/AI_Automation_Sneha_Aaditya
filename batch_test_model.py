@@ -24,12 +24,6 @@ SERVER_URL       = "http://127.0.0.1:8765"   # Must match HOST:PORT in model_ser
 INPUT_TXT_FILE   = "latest_testing.txt"
 OUTPUT_JSON_FILE = "test_results_output_batch.json"
 BATCH_SIZE       = 8     # Lines per server call. Reduce to 4 if CUDA OOM occurs.
-
-# Max log-line length (chars) we feed to the model.
-# compute_max_new_tokens(795) == 700, which is the hard token cap.
-# Any line longer than this is trimmed from the tail (payload end) before
-# being sent, so the model always has enough room to emit a complete JSON.
-MAX_LINE_LEN     = 795
 # ==============================================================================
 
 
@@ -57,28 +51,6 @@ def compute_max_new_tokens(line_len: int) -> int:
       len=775 (200 bytes) → 680
     """
     return int(max(150, min(line_len - 95, 700)))
-
-
-def trim_log_line(line: str) -> tuple[str, int]:
-    """
-    If *line* is longer than MAX_LINE_LEN characters, trim it from the back
-    so that compute_max_new_tokens() stays within the 700-token cap.
-
-    The trim snaps backward to the nearest space so we never cut a hex byte
-    in half (payload bytes are separated by spaces, e.g. "06 03 00 ...").
-
-    Returns (trimmed_line, chars_removed).  chars_removed == 0 means no trim.
-    """
-    if len(line) <= MAX_LINE_LEN:
-        return line, 0
-
-    trimmed = line[:MAX_LINE_LEN]
-    # Snap back to the nearest space so we don't split a hex byte
-    last_space = trimmed.rfind(" ")
-    if last_space > 0:
-        trimmed = trimmed[:last_space]
-
-    return trimmed, len(line) - len(trimmed)
 
 
 def build_prompt(raw_log_line: str) -> str:
@@ -202,24 +174,8 @@ def main():
             end="\r"
         )
 
-        # Trim oversized lines from the back before building prompts
-        trimmed_batch = []
-        for line_idx_local, line in enumerate(batch):
-            trimmed_line, chars_cut = trim_log_line(line)
-            if chars_cut > 0:
-                global_idx = batch_start + line_idx_local + 1
-                print(
-                    f"\n  ✂ Line {global_idx}: trimmed {chars_cut} chars from tail "
-                    f"(original {len(line)} → {len(trimmed_line)} chars)"
-                )
-            trimmed_batch.append(trimmed_line)
-
-        # Re-compute dynamic token budget using trimmed lengths
-        trimmed_lens = [len(l) for l in trimmed_batch]
-        dyn_tokens   = compute_max_new_tokens(max(trimmed_lens))
-
         # Build prompts and send to server with dynamic token budget
-        prompts = [build_prompt(line) for line in trimmed_batch]
+        prompts = [build_prompt(line) for line in batch]
         try:
             raw_responses = infer_batch(prompts, dyn_tokens)
         except Exception as e:

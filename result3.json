@@ -20,7 +20,8 @@
         "method_id": 32791,
         "direction": "rx",
         "payload": "01 97 01 00 08 56 00 0f 02 00 00",
-        "time": "01-01 07:55:08.871"
+        "time": "01-01 07:55:08.871",
+        "query_signal": "IPC1__VehSpdICStatus_rx_v"
     },
     {
         "messageName": "IPC1",
@@ -43,6 +44,26 @@
         "method_id": 32791,
         "direction": "rx",
         "payload": "01 97 01 00 08 56 00 06 02 00 00",
-        "time": "01-01 07:55:08.999"
+        "time": "01-01 07:55:08.999",
+        "query_signal": "IPC1__VehSpdICStatus_rx_v"
+    },
+    {
+        "messageName": "IPC_GSD1",
+        "signalName": "BatVoltGS",
+        "msgid": "04FA",
+        "start_byte": 6,
+        "start_bit": 7,
+        "length": 8,
+        "matched_choice": "no match for value 119 in choices",
+        "choices": {
+            "255": "Signal nlot available"
+        },
+        "isCAN": true,
+        "service_id": 191,
+        "method_id": 32875,
+        "direction": "rx",
+        "payload": "04 fa 01 01 60 f5 00 00 00 77 42",
+        "time": "01-01 07:55:08.914",
+        "query_signal": "IPC_GSD1__BatVoltGS_rx_v"
     }
 ]

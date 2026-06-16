@@ -11,9 +11,9 @@ The script will prompt for:
     3. ucl_log_path  - full path to the UCL log file
 
 Outputs produced (in same directory as this script):
-    latest_testing.txt       - log lines ±30 s around the timestamp
-    test_results_output.json - produced by running latest_test_model.py
-    result1.json             - skylark_messages match + test_results_output match
+    latest_testing.txt               - log lines ±5 s around the timestamp
+    test_results_output_batch.json   - produced by running batch_test_model.py
+    result1.json                     - skylark_messages match + test_results_output match
     result2.json             - skylark_signals  match  (isCAN=false)
                                OR output2.json  match  (isCAN=true)
 """
@@ -30,9 +30,9 @@ SCRIPT_DIR            = os.path.dirname(os.path.abspath(__file__))
 SKYLARK_MESSAGES_FILE = os.path.join(SCRIPT_DIR, "skylark_messages.json")
 SKYLARK_SIGNALS_FILE  = os.path.join(SCRIPT_DIR, "skylark_signals.json")
 OUTPUT2_FILE          = os.path.join(SCRIPT_DIR, "output 2.json")
-TEST_RESULTS_FILE     = os.path.join(SCRIPT_DIR, "test_results_output.json")
+TEST_RESULTS_FILE     = os.path.join(SCRIPT_DIR, "test_results_output_batch.json")
 LATEST_TESTING_FILE   = os.path.join(SCRIPT_DIR, "latest_testing.txt")
-MODEL_SCRIPT          = os.path.join(SCRIPT_DIR, "latest_test_model.py")
+MODEL_SCRIPT          = os.path.join(SCRIPT_DIR, "batch_test_model.py")
 RESULT1_FILE          = os.path.join(SCRIPT_DIR, "result1.json")
 RESULT2_FILE          = os.path.join(SCRIPT_DIR, "result2.json")
 RESULT3_FILE          = os.path.join(SCRIPT_DIR, "result3.json")
@@ -116,10 +116,10 @@ def save_json(path: str, obj):
 
 # ── skylark_messages lookup ───────────────────────────────────────────────────────
 def find_skylark_message(messagename: str, skylark_messages: list) -> dict | None:
-    """Case-insensitive search on 'messagename' field."""
-    mn_lower = messagename.lower()
+    """Case-insensitive search on 'messagename' field, ignoring underscores."""
+    mn_lower = messagename.lower().replace("_", "")
     for entry in skylark_messages:
-        if entry.get("messagename", "").lower() == mn_lower:
+        if entry.get("messagename", "").lower().replace("_", "") == mn_lower:
             return entry
     return None
 
@@ -396,46 +396,20 @@ def build_result3_can(result1: list, result2) -> list:
 
 
 # ── Main pipeline ─────────────────────────────────────────────────────────────────
-def main():
+def run_pipeline(signals: list[str], timestamp: str, ucl_log_path: str = UCL_LOG_PATH):
     print("=" * 65)
-    print("  VHAL Analyzer")
+    print("  VHAL Analyzer (Batch Mode)")
     print("=" * 65)
-
-    # ── User inputs ──────────────────────────────────────────────────────
-    propertyname = input("\nEnter propertyname: ").strip()
-    timestamp    = input("Enter timestamp (MM-DD HH:MM:SS.mmm): ").strip()
-    ucl_log_path = UCL_LOG_PATH
+    print(f"  Timestamp  : {timestamp}")
+    print(f"  UCL Log    : {ucl_log_path}")
+    print(f"  Signals    : {len(signals)} selected")
+    print()
 
     if not os.path.isfile(ucl_log_path):
         print(f"\n❌  UCL log not found: {ucl_log_path}")
-        sys.exit(1)
+        return
 
-    # ── Parse property name ──────────────────────────────────────────────
-    try:
-        parsed_prop = parse_propertyname(propertyname)
-    except ValueError as exc:
-        print(f"\n❌  {exc}")
-        sys.exit(1)
-
-    prop_type = parsed_prop[0]
-    if prop_type == "vhal":
-        messagename = parsed_prop[1]
-        print(f"\n  Mode       : VHAL prefix")
-        print(f"  MessageName: {messagename}")
-    else:
-        messagename = parsed_prop[1]
-        signalname  = parsed_prop[2]
-        direction   = parsed_prop[3]
-        print(f"\n  Mode       : Signal")
-        print(f"  MessageName: {messagename}")
-        print(f"  SignalName : {signalname}")
-        print(f"  Direction  : {direction}")
-
-    print(f"  Timestamp  : {timestamp}")
-    print(f"  UCL Log    : {ucl_log_path}")
-    print()
-
-    # ── Step 1: Extract ±30s log window ─────────────────────────────────
+    # ── Step 1: Extract ±5s log window ─────────────────────────────────
     window_lines = extract_log_window(ucl_log_path, timestamp)
     if not window_lines:
         print("⚠  No lines found in the ±5s window. Check the timestamp format and log content.")
@@ -444,24 +418,35 @@ def main():
         fh.write("\n".join(window_lines) + "\n")
     print(f"[1/5] Written {len(window_lines)} lines → {LATEST_TESTING_FILE}")
 
-    # ── Step 2: Run latest_test_model.py ────────────────────────────────
+    # ── Step 2: Run batch_test_model.py ────────────────────────────────
     print(f"\n[2/5] Running model: {MODEL_SCRIPT} …")
     if not os.path.isfile(MODEL_SCRIPT):
         print(f"❌  Model script not found: {MODEL_SCRIPT}")
-        sys.exit(1)
+        return
 
-    result = subprocess.run(
+    # We use sys.executable assuming the caller is in the venv
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    process = subprocess.Popen(
         [sys.executable, MODEL_SCRIPT],
         cwd=SCRIPT_DIR,
-        capture_output=False,   # show output live
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        bufsize=1,
+        env=env
     )
-    if result.returncode != 0:
-        print(f"❌  Model script exited with code {result.returncode}")
-        sys.exit(result.returncode)
+    for line in process.stdout:
+        print(line, end="")
+    process.wait()
+    if process.returncode != 0:
+        print(f"❌  Model script exited with code {process.returncode}")
+        return
 
     if not os.path.isfile(TEST_RESULTS_FILE):
         print(f"❌  Model did not produce {TEST_RESULTS_FILE}")
-        sys.exit(1)
+        return
 
     print(f"[2/5] Model finished → {TEST_RESULTS_FILE}")
 
@@ -472,121 +457,100 @@ def main():
     print(f"      skylark_messages : {len(skylark_messages)} entries")
     print(f"      test_results     : {len(test_results)} entries")
 
-    # ── Step 4: Look up messagename in skylark_messages.json ────────────
-    print(f"\n[4/5] Looking up '{messagename}' in skylark_messages.json …")
-    skylark_entry = find_skylark_message(messagename, skylark_messages)
+    all_result1 = []
+    all_result2 = []
+    all_result3 = []
 
-    if skylark_entry is None:
-        print(f"⚠  '{messagename}' not found in skylark_messages.json")
-        print("   result1.json will contain an empty list.")
-        result1 = []
-    else:
-        print(f"      Found: {skylark_entry}")
-        is_can = skylark_entry.get("isCAN", False)
+    for propertyname in signals:
+        print(f"\n--- Processing Signal: {propertyname} ---")
+        try:
+            parsed_prop = parse_propertyname(propertyname)
+        except ValueError as exc:
+            print(f"❌  {exc}")
+            continue
 
-        # Match with test_results_output.json on serviceId, methodId, direction
-        matched_test = match_test_results(skylark_entry, test_results)
-        print(f"      Matched {len(matched_test)} entry/entries in test_results_output.json")
-
-        result1 = [
-            {
-                "skylark_message": skylark_entry,
-                "test_result"    : tr,
-            }
-            for tr in matched_test
-        ] if matched_test else [{"skylark_message": skylark_entry, "test_result": None}]
-
-    save_json(RESULT1_FILE, result1)
-
-    # ── Step 5: Build result2 ────────────────────────────────────────────
-    print(f"\n[5/5] Building result2.json …")
-
-    result2 = None
-
-    if skylark_entry is None:
-        print("⚠  Cannot build result2 — skylark_messages entry not found.")
-        result2 = {"error": f"'{messagename}' not found in skylark_messages.json"}
-
-    elif prop_type == "vhal":
-        # VHAL_<MessageName> path
-        # If isCAN == false → use skylark_signals.json
-        if not is_can:
-            skylark_signals = load_json(SKYLARK_SIGNALS_FILE)
-            sig_entry = find_skylark_signals(messagename, skylark_signals)
-            if sig_entry:
-                print(f"      isCAN=false → skylark_signals match: {sig_entry}")
-                result2 = sig_entry
-            else:
-                print(f"⚠  '{messagename}' not found in skylark_signals.json")
-                result2 = {"error": f"'{messagename}' not found in skylark_signals.json"}
+        prop_type = parsed_prop[0]
+        if prop_type == "vhal":
+            messagename = parsed_prop[1]
         else:
-            # isCAN == true → for VHAL_ mode we don't have a signalname to look up
-            # Inform the user; store the raw skylark_messages entry
-            print(f"⚠  isCAN=true for VHAL_ mode — no signal-level lookup performed.")
-            result2 = {
-                "note": "isCAN is true; signal-level lookup requires a signal-typed propertyname.",
-                "skylark_message": skylark_entry,
-            }
+            messagename = parsed_prop[1]
+            signalname  = parsed_prop[2]
+            direction   = parsed_prop[3]
 
-    else:
-        # <MessageName>__<SignalName>_(rx|tx)_v path
-        if is_can:
-            # isCAN == true → use output 2.json
-            output2 = load_json(OUTPUT2_FILE)
-            o2_entry = find_output2_entry(direction, messagename, signalname, output2)
-            if o2_entry:
-                print(f"      isCAN=true → output2.json match found.")
-                result2 = o2_entry
-            else:
-                print(f"⚠  No match in output2.json for msg='{messagename}', sig='{signalname}', dir='{direction}'")
-                result2 = {
-                    "error": (
-                        f"No match in output2.json for messageName='{messagename}', "
-                        f"signalName='{signalname}', direction='{direction}'"
-                    )
+        # ── Step 4: Look up messagename in skylark_messages.json ────────────
+        skylark_entry = find_skylark_message(messagename, skylark_messages)
+        if skylark_entry is None:
+            print(f"⚠  '{messagename}' not found in skylark_messages.json")
+            result1 = []
+        else:
+            is_can = skylark_entry.get("isCAN", False)
+            matched_test = match_test_results(skylark_entry, test_results)
+            result1 = [
+                {
+                    "query_signal": propertyname,
+                    "skylark_message": skylark_entry,
+                    "test_result"    : tr,
                 }
-        else:
-            # isCAN == false → use skylark_signals.json (by messagename only)
-            skylark_signals = load_json(SKYLARK_SIGNALS_FILE)
-            sig_entry = find_skylark_signals(messagename, skylark_signals)
-            if sig_entry:
-                print(f"      isCAN=false → skylark_signals match: {sig_entry.get('messageName')}")
-                result2 = sig_entry
+                for tr in matched_test
+            ] if matched_test else [{"query_signal": propertyname, "skylark_message": skylark_entry, "test_result": None}]
+        
+        all_result1.extend(result1)
+
+        # ── Step 5: Build result2 ────────────────────────────────────────────
+        result2 = None
+        if skylark_entry is None:
+            result2 = {"query_signal": propertyname, "error": f"'{messagename}' not found in skylark_messages.json"}
+        elif prop_type == "vhal":
+            if not is_can:
+                skylark_signals = load_json(SKYLARK_SIGNALS_FILE)
+                sig_entry = find_skylark_signals(messagename, skylark_signals)
+                result2 = {"query_signal": propertyname, **sig_entry} if sig_entry else {"query_signal": propertyname, "error": "not found"}
             else:
-                print(f"⚠  '{messagename}' not found in skylark_signals.json")
-                result2 = {"error": f"'{messagename}' not found in skylark_signals.json"}
+                result2 = {"query_signal": propertyname, "note": "isCAN is true; signal-level lookup requires a signal-typed propertyname."}
+        else:
+            if is_can:
+                output2 = load_json(OUTPUT2_FILE)
+                o2_entry = find_output2_entry(direction, messagename, signalname, output2)
+                result2 = {"query_signal": propertyname, **o2_entry} if o2_entry else {"query_signal": propertyname, "error": "not found"}
+            else:
+                skylark_signals = load_json(SKYLARK_SIGNALS_FILE)
+                sig_entry = find_skylark_signals(messagename, skylark_signals)
+                result2 = {"query_signal": propertyname, **sig_entry} if sig_entry else {"query_signal": propertyname, "error": "not found"}
+        
+        if result2:
+            all_result2.append(result2)
 
-    save_json(RESULT2_FILE, result2)
+        # ── Step 6: Build result3 (isCAN=true CAN signal decode) ────────────
+        is_can_run = skylark_entry is not None and skylark_entry.get("isCAN", False)
+        if is_can_run:
+            result3 = build_result3_can(result1, result2)
+            for r3 in result3:
+                r3["query_signal"] = propertyname
+            all_result3.extend(result3)
 
-    # ── Step 6: Build result3 (isCAN=true CAN signal decode) ────────────
-    print(f"\n[6/6] Building result3.json (CAN signal decode) …")
+    # Save final aggregated results
+    save_json(RESULT1_FILE, all_result1)
+    save_json(RESULT2_FILE, all_result2)
+    save_json(RESULT3_FILE, all_result3)
 
-    # Determine if this run is isCAN=true
-    is_can_run = skylark_entry is not None and skylark_entry.get("isCAN", False)
-
-    if not is_can_run:
-        print("      isCAN=false — result3.json not applicable. Writing empty list.")
-        save_json(RESULT3_FILE, [])
-    else:
-        # Load the result1 and result2 we just produced
-        r1 = load_json(RESULT1_FILE)
-        r2 = load_json(RESULT2_FILE)
-        result3 = build_result3_can(r1, r2)
-        print(f"      Produced {len(result3)} decoded signal record(s).")
-        save_json(RESULT3_FILE, result3)
-
-    # ── Summary ──────────────────────────────────────────────────────────
     print()
     print("=" * 65)
     print("  PIPELINE COMPLETE")
     print("=" * 65)
     print(f"  latest_testing.txt    → {LATEST_TESTING_FILE}")
     print(f"  test_results_output   → {TEST_RESULTS_FILE}")
-    print(f"  result1.json          → {RESULT1_FILE}")
-    print(f"  result2.json          → {RESULT2_FILE}")
-    print(f"  result3.json          → {RESULT3_FILE}")
+    print(f"  result1.json          → {RESULT1_FILE} ({len(all_result1)} entries)")
+    print(f"  result2.json          → {RESULT2_FILE} ({len(all_result2)} entries)")
+    print(f"  result3.json          → {RESULT3_FILE} ({len(all_result3)} entries)")
     print("=" * 65)
 
+def main():
+    print("=" * 65)
+    print("  VHAL Analyzer")
+    print("=" * 65)
+    propertyname = input("\nEnter propertyname: ").strip()
+    timestamp    = input("Enter timestamp (MM-DD HH:MM:SS.mmm): ").strip()
+    run_pipeline([propertyname], timestamp, UCL_LOG_PATH)
 
 if __name__ == "__main__":
     main()

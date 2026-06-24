@@ -305,6 +305,7 @@ def decode_can_signal(payload_str: str, result2_entry: dict) -> dict:
 
     # ── Step 8: map to choices ───────────────────────────────────────────
     choices = result2_entry.get("choices", {})
+    physical_value = None
     if choices:
         choice_label = choices.get(str(signal_value))
         if choice_label is None:
@@ -312,11 +313,22 @@ def decode_can_signal(payload_str: str, result2_entry: dict) -> dict:
         else:
             chosen = {str(signal_value): choice_label}
     else:
-        chosen = "choices is empty"
+        factor = result2_entry.get("factor", 1.0)
+        offset = result2_entry.get("offset", 0.0)
+        minimum = result2_entry.get("minimum", 0.0)
+        maximum = result2_entry.get("maximum", 0.0)
+        
+        physical_value = signal_value * factor + offset
+        
+        if minimum <= physical_value <= maximum:
+            chosen = {str(physical_value): f"Valid value: {physical_value}"}
+        else:
+            chosen = {str(physical_value): f"Invalid value: {physical_value} (out of bounds [{minimum}, {maximum}])"}
 
     return {
         "decoded_bits"  : bit_string,
         "signal_value"  : signal_value,
+        "physical_value": physical_value,
         "matched_choice": chosen,
     }
 
@@ -384,6 +396,11 @@ def build_result3_can(result1: list, result2) -> list:
                 "length"        : sig_def.get("length"),
                 "matched_choice": decode["matched_choice"],
                 "choices"       : choices_val if choices_val else "empty",
+                "minimum"       : sig_def.get("minimum"),
+                "maximum"       : sig_def.get("maximum"),
+                "offset"        : sig_def.get("offset"),
+                "factor"        : sig_def.get("factor"),
+                "physical_value": decode.get("physical_value"),
                 "isCAN"         : skylark_msg.get("isCAN"),
                 "service_id"    : skylark_msg.get("service id"),
                 "method_id"     : skylark_msg.get("method id"),

@@ -1,7 +1,22 @@
 [
     {
+        "query_signal": "IPC1__VehSpdIC_rx_v",
+        "namespace": "Skylark_EV",
+        "messageName": "IPC1",
+        "signalName": "VehSpdIC",
+        "msgid": "0197",
+        "start_byte": 0,
+        "start_bit": 7,
+        "length": 12,
+        "choices": {},
+        "minimum": 0,
+        "maximum": 127.96875,
+        "offset": 0,
+        "factor": 0.03125
+    },
+    {
         "query_signal": "IPC1__VehSpdICStatus_rx_v",
-        "namespace": "Skylark",
+        "namespace": "Skylark_EV",
         "messageName": "IPC1",
         "signalName": "VehSpdICStatus",
         "msgid": "0197",
@@ -13,19 +28,6 @@
             "2": "Value is implausibe",
             "1": "Reserved",
             "0": "Value is plausible"
-        }
-    },
-    {
-        "query_signal": "IPC_GSD1__BatVoltGS_rx_v",
-        "namespace": "Skylark",
-        "messageName": "IPC_GSD1",
-        "signalName": "BatVoltGS",
-        "msgid": "04FA",
-        "start_byte": 6,
-        "start_bit": 7,
-        "length": 8,
-        "choices": {
-            "255": "Signal nlot available"
         }
     }
 ]
